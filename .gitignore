@@ -1,0 +1,16 @@
+# Ignore Telegram token file and session data
+telegram_token.txt
+sessions/
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Environment
+.env
+venv/
+
+# Editor
+.vscode/
+.idea/

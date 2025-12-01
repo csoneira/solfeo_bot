@@ -7,9 +7,25 @@ __pycache__/
 *.py[cod]
 *.pyo
 
-# Environment
-.env
+# Build / packaging
+dist/
+build/
+*.egg-info/
+
+# Virtual env
+.venv/
 venv/
+
+# Environment files
+.env
+
+# Test and tooling
+.pytest_cache/
+coverage.xml
+
+# OS files
+.DS_Store
+Thumbs.db
 
 # Editor
 .vscode/

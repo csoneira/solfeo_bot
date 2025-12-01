@@ -206,13 +206,14 @@ def generate_note_image(clef: str, staff_index: int) -> BytesIO:
     # cada step = 0.5 en y
     note_x = 8.0
     note_y = staff_index * 0.5
-
+    
     # Cabeza de nota: elipse negra ligeramente inclinada
+    factor = 1.35
     note_head = Ellipse(
         (note_x, note_y),
-        width=0.9,
-        height=0.6,
-        angle=-20,
+        width=0.9*factor,
+        height=0.6*factor,
+        angle=20,
         facecolor="black",
         edgecolor="black",
     )
@@ -259,7 +260,7 @@ def generate_note_image(clef: str, staff_index: int) -> BytesIO:
     ax.axis("off")
 
     buf = BytesIO()
-    fig.savefig(buf, format="png", dpi=180, bbox_inches="tight", pad_inches=0.05)
+    fig.savefig(buf, format="png", dpi=580, bbox_inches="tight", pad_inches=0.05)
     plt.close(fig)
     buf.seek(0)
     return buf

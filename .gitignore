@@ -1,5 +1,6 @@
 # Ignore Telegram token file and session data
 telegram_token.txt
+SESSIONS/
 sessions/
 
 # Python
@@ -30,3 +31,9 @@ Thumbs.db
 # Editor
 .vscode/
 .idea/
+
+# JUNK
+JUNK/
+
+# Roadmap and to-do files
+to_do.md

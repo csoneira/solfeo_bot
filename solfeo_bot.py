@@ -546,6 +546,44 @@ def restore_console_focus():
         pass
 
 
+def _menu_text_main() -> str:
+    return (
+        "Bienvenido a Solfeo — elige una opción para empezar:\n\n"
+        "• /play — comenzar a practicar (luego elige entre modos: free o time).\n"
+        "• /historial — ver opciones de historial y estadísticas (tiempos, aciertos, listado de partidas).\n"
+        "• /settings — configurar preferencia de idioma y sistema de notación.\n\n"
+        "En local puedes escribir 'play', 'historial' o 'settings' sin '/'.\n"
+    )
+
+
+def _menu_text_play() -> str:
+    return (
+        "Modos de juego:\n\n"
+        "• Usa /free para modo libre — no guarda datos ni mide tiempos.\n"
+        "• Usa /time para iniciar sesión temporizada — se guardarán tiempos y aciertos.\n\n"
+        "En local puedes escribir 'free' o 'time' sin '/'.\n"
+    )
+
+
+def _menu_text_historial() -> str:
+    return (
+        "Historial y estadísticas:\n\n"
+        "• /tiempos [n] — genera gráficos de tiempos por nota para las últimas n sesiones.\n"
+        "• /aciertos [n] — genera gráficos de tasa de aciertos por nota para las últimas n sesiones.\n"
+        "• /old_games [n] — lista rápida de las últimas n partidas guardadas.\n\n"
+        "En local puedes escribir 'tiempos', 'aciertos' u 'old_games' sin '/'.\n"
+    )
+
+
+def _menu_text_settings() -> str:
+    return (
+        "Ajustes de usuario:\n\n"
+        "• /set_language — cambiar el idioma de los mensajes (es/en).\n"
+        "• /set_system — elegir el sistema de notación ('letter' o 'solfege').\n\n"
+        "En local puedes teclear 'set_language' o 'set_system'.\n"
+    )
+
+
 # =========================================================
 # HANDLERS DE TELEGRAM
 # =========================================================
@@ -556,17 +594,11 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    text = (
-        "Bienvenido a Solfeo — elige una opción para empezar:\n\n"
-        "• play — comenzar a practicar (luego elige entre modos: free o time).\n"
-        "• historial — ver opciones de historial y estadísticas (tiempos, aciertos, listado de partidas).\n"
-        "• settings — configurar preferencia de idioma y sistema de notación.\n\n"
-        "Escribe la palabra correspondiente (por ejemplo 'play') o usa los comandos en Telegram: /play, /historial, /settings.\n"
-        "Tras elegir 'play' te ofreceré los modos: /free y /time.\n"
-        "Tras elegir 'historial' te mostraré: /tiempos, /aciertos y /old_games (lista rápida de partidas).\n"
-        "En local puedes escribir las mismas palabras sin '/'.\n"
-    )
-    await update.message.reply_text(text)
+    await update.message.reply_text(_menu_text_main())
+
+
+async def play_menu_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(_menu_text_play())
 
 
 async def set_language_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -652,43 +684,11 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def settings_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Trigger language change for the user. Bot will ask the user to reply with a
-    language code (e.g., 'es' or 'en') and store it under SESSIONS/SETTINGS/<user>.lang
-    """
-    username = _safe_username_from_update(update)
-    context.user_data["awaiting_language"] = True
-    await update.message.reply_text(
-        "Por favor, responde con el código de idioma que prefieres (por ejemplo 'es' para español, 'en' para inglés).\n"
-        "También puedes escribir el nombre completo como 'español' o 'english'."
-    )
+    await update.message.reply_text(_menu_text_settings())
 
 
 async def historial_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """List last N session files (default 1) for this user and show brief stats."""
-    args = context.args if hasattr(context, 'args') else []
-    n = 1
-    if args:
-        try:
-            n = max(1, int(args[0]))
-        except Exception:
-            n = 1
-
-    username = _safe_username_from_update(update)
-    files = _list_user_sessions(username)[:n]
-    if not files:
-        await update.message.reply_text("No hay sesiones guardadas para este usuario.")
-        return
-
-    lines = []
-    for p in files:
-        recs = _read_session_csv(p)
-        attempts = len(recs)
-        corrects = sum(1 for r in recs if r.get('correct'))
-        rate = (corrects / attempts * 100.0) if attempts else 0.0
-        mtime = datetime.fromtimestamp(p.stat().st_mtime).isoformat()
-        lines.append(f"{p.name} — {mtime} — intentos: {attempts} — aciertos: {rate:.1f}%")
-
-    await update.message.reply_text("\n".join(lines))
+    await update.message.reply_text(_menu_text_historial())
 
 
 def _make_time_plot(records: list[dict]) -> BytesIO:
@@ -801,14 +801,30 @@ async def tiempos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def aciertos_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # First-layer help: keep it short and ask user to pick Play or Historial.
-    text = (
-        "¿Qué quieres hacer?\n\n"
-        "• Escribe 'play' para comenzar a practicar (luego te ofreceré los modos: free/time).\n"
-        "• Escribe 'historial' para ver opciones de historial y gráficos (listado, tiempos, aciertos).\n\n"
-        "(En Telegram usa /play o /historial; en local puedes teclear sin '/')"
-    )
-    await update.message.reply_text(text)
+    args = context.args if hasattr(context, 'args') else []
+    n = 1
+    if args:
+        try:
+            n = max(1, int(args[0]))
+        except Exception:
+            n = 1
+
+    username = _safe_username_from_update(update)
+    files = _list_user_sessions(username)[:n]
+    if not files:
+        await update.message.reply_text("No hay sesiones para generar graficas.")
+        return
+
+    combined = []
+    for p in files:
+        combined.extend(_read_session_csv(p))
+
+    if not combined:
+        await update.message.reply_text("No hay datos de aciertos para mostrar.")
+        return
+
+    buf = _make_success_plot(combined)
+    await update.effective_chat.send_photo(photo=buf)
 
 async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_text = update.message.text
@@ -847,6 +863,28 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"Error guardando la configuración: {e}")
         return
 
+    if context.user_data.get("awaiting_system") and not current:
+        sys_try = (user_text or "").strip().lower()
+        if not sys_try:
+            await update.message.reply_text("No se recibió un sistema válido. Escribe 'letter' o 'solfege'.")
+            return
+
+        if sys_try.startswith("let") or sys_try in ("letter", "letters", "abc"):
+            system = "letter"
+        elif sys_try.startswith("sol") or sys_try in ("solfege", "solfeo", "do", "doremi"):
+            system = "solfege"
+        else:
+            await update.message.reply_text("Opción no reconocida. Escribe 'letter' o 'solfege'.")
+            return
+
+        try:
+            _write_user_system(username, system)
+            context.user_data["awaiting_system"] = False
+            await update.message.reply_text(f"Sistema almacenado: {system}. Usa /play para continuar practicando.")
+        except Exception as e:
+            await update.message.reply_text(f"Error guardando la configuración: {e}")
+        return
+
     # If there's no active note, still count unrecognized answers so that
     # two nonsense messages (even before /start) will trigger the help text.
     if not current:
@@ -854,33 +892,17 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
         cmd = (user_text or "").strip().lstrip('/').lower()
         if cmd in ("play",):
             # second-layer: show play modes
-            await update.message.reply_text(
-                "Modos de juego:\n\n"
-                "• Usa /free para modo libre — no guarda datos ni mide tiempos.\n"
-                "• Usa /time para iniciar sesión temporizada — se guardarán tiempos y aciertos.\n\n"
-                "En local puedes escribir 'free' o 'time' sin '/'."
-            )
+            await update.message.reply_text(_menu_text_play())
             return
         if cmd in ("historial",):
-            await update.message.reply_text(
-                "Historial y estadísticas:\n\n"
-                "• /tiempos [n] — genera gráficos de tiempos por nota para las últimas n sesiones.\n"
-                "• /aciertos [n] — genera gráficos de tasa de aciertos por nota para las últimas n sesiones.\n"
-                "• /old_games [n] — lista rápida de las últimas n partidas guardadas.\n\n"
-                "En local puedes escribir 'tiempos', 'aciertos' u 'old_games' sin '/'."
-            )
+            await update.message.reply_text(_menu_text_historial())
             return
         if cmd in ("help", "start"):
             await help_command(update, context)
             return
         if cmd in ("settings",):
             # Show settings quick menu (language & notation system)
-            await update.message.reply_text(
-                "Ajustes de usuario:\n\n"
-                "• /set_language — cambiar el idioma de los mensajes (es/en).\n"
-                "• /set_system — elegir el sistema de notación ('letter' o 'solfege').\n\n"
-                "En local puedes teclear 'set_language' o 'set_system'."
-            )
+            await update.message.reply_text(_menu_text_settings())
             return
 
         user_letter_try = normalize_answer(user_text)
@@ -895,13 +917,13 @@ async def handle_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 await help_command(update, context)
                 return
             await update.message.reply_text(
-                "No hay ninguna nota activa. Escribe 'play' para ver los modos o 'historial' para ver tus sesiones."
+                "Escribe '/start' para ver la ayuda."
             )
             return
         else:
             # It's a valid note text but there's no active note
             await update.message.reply_text(
-                "No hay ninguna nota activa. Escribe 'play' para ver los modos o 'historial' para ver tus sesiones."
+                "Escribe '/start' para ver la ayuda."
             )
             return
 
@@ -1027,6 +1049,7 @@ def main(token: str | None = None):
 
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_command))
+    app.add_handler(CommandHandler("play", play_menu_command))
     app.add_handler(CommandHandler("free", free_command))
     app.add_handler(CommandHandler("time", time_command))
     app.add_handler(CommandHandler("stop", stop_command))
@@ -1130,20 +1153,10 @@ def local_run(rounds: int | None = None):
                 if cmd in ("help", "start"):
                     # /start behaves like help: show top-level menu
                     print()
-                    print(
-                        "Bienvenido a Solfeo — elige una opción:\n\n"
-                        "• play — comenzar a practicar (luego elige entre modos: free o time).\n"
-                        "• historial — ver opciones de historial y estadísticas (tiempos, aciertos, listado de partidas).\n"
-                        "• settings — configurar idioma y sistema de notación.\n\n"
-                        "Escribe la palabra correspondiente (por ejemplo 'play') o usa los comandos equivalentes.\n"
-                    )
+                    print(_menu_text_main())
                     continue
                 if cmd == 'play':
-                    print(
-                        "Modos de juego:\n\n"
-                        "• Escribe 'free' para modo libre — no guarda datos.\n"
-                        "• Escribe 'time' para modo temporizado — se guardarán tiempos y aciertos.\n"
-                    )
+                    print(_menu_text_play())
                     continue
 
                 if cmd == 'free':
@@ -1200,21 +1213,12 @@ def local_run(rounds: int | None = None):
                     continue
 
                 if cmd == 'historial':
-                    print(
-                        "Historial y estadísticas:\n\n"
-                        "• 'tiempos' — generar gráficos de tiempos por nota.\n"
-                        "• 'aciertos' — generar gráficos de tasa de aciertos por nota.\n"
-                        "• 'old_games' — listar rápidamente las últimas partidas guardadas.\n"
-                    )
+                    print(_menu_text_historial())
                     continue
 
                 if cmd == 'settings':
                     # Show settings options for local user
-                    print(
-                        "Ajustes de usuario:\n\n"
-                        "• 'set_language' — cambiar el idioma de los mensajes (es/en).\n"
-                        "• 'set_system' — elegir el sistema de notación ('letter' o 'solfege').\n"
-                    )
+                    print(_menu_text_settings())
                     continue
 
                 if cmd == 'set_language':
@@ -1337,19 +1341,10 @@ def local_run(rounds: int | None = None):
                     if invalid_count >= 2:
                         print("Demasiadas respuestas no reconocidas. Mostrando ayuda.")
                         print()
-                        print(
-                            "Instrucciones:\n\n"
-                            "• Usa 'play' para comenzar una práctica (elige 'free' o 'time').\n"
-                            "• Cada imagen muestra una nota en clave de SOL o de FA.\n"
-                            "• Responde con el nombre de la nota (do, re, mi, fa, sol, la, si) "
-                            "o con letras (C, D, E, F, G, A, B).\n"
-                            "• No es necesario indicar la octava.\n"
-                        )
+                        print(_menu_text_main())
                         invalid_count = 0
                     else:
-                        print("No hay ninguna nota activa. Escribe 'play' para ver los modos, 'historial' para ver estadísticas o 'settings' para ajustes.")
-                    continue
-
+                        print("Escribe '/start' para ver la ayuda.")
                     continue
 
             # If we reach here, current_note is active and we should prompt for a guess
@@ -1415,14 +1410,7 @@ def local_run(rounds: int | None = None):
                 if invalid_count >= 2:
                     print("Demasiadas respuestas no reconocidas. Reiniciando la sesión.")
                     print()
-                    print(
-                        "Instrucciones:\n\n"
-                        "• Usa 'play' para comenzar una práctica (elige 'free' o 'time').\n"
-                        "• Cada imagen muestra una nota en clave de SOL o de FA.\n"
-                        "• Responde con el nombre de la nota (do, re, mi, fa, sol, la, si) "
-                        "o con letras (C, D, E, F, G, A, B).\n"
-                        "• No es necesario indicar la octava.\n"
-                    )
+                    print(_menu_text_main())
                     # If timed session, save before exiting
                     if mode == 'time' and session_records:
                         username = "local_" + getpass.getuser()

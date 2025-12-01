@@ -1,138 +1,109 @@
-Solfeo Bot — local and Telegram modes
-
-Overview
-
-This repository contains a small solfège practice tool implemented in a single script `solfeo_bot.py`.
-The same script can run either as a local interactive program (default) or as a Telegram bot (use `--telegram`).
-# Solfeo Bot — local and Telegram modes
+# Solfeo Bot — Local & Telegram
 
 ## Overview
 
-This repository contains a small solfège practice tool implemented in a single script `solfeo_bot.py`.
-The same script can run either as a local interactive program (default) or as a Telegram bot (use `--telegram`).
+Solfeo Bot is a single-file solfège practice tool that can run in local mode (default) or as a Telegram bot (`--telegram`). It shows randomly selected staff notes, lets players answer using solfège or letter names, and keeps per-user settings so each student can choose language and notation preferences.
 
-## Features
+## Feature snapshot
 
-- Show musical notes on a staff (treble/bass) using matplotlib.
-- Two play modes:
-  - Free mode (`/free`): practice without saving or timing.
-  - Timed mode (`/time`): measure response time and correctness; save sessions as CSV.
-- Session persistence: timed sessions are saved under `sessions/<username>/session_YYYYMMDD_HHMMSS.csv`.
-- Commands to list history and generate plots:
-  - `/historial [n]` — list last n sessions.
-  - `/tiempos [n]` — plot average times per note (treble & bass panels).
-  - `/aciertos [n]` — plot success rates per note (treble & bass panels).
-- Local mode supports the same commands typed at the prompt (you may omit the leading `/`).
-- Console focus is restored after showing plot windows on Windows and (when available) on Linux via xdotool/wmctrl.
+- One script (`solfeo_bot.py`) for both environments.
+- `/help` and `/start` present three clear entry points: **play**, **historial**, **settings**.
+- Per-user settings saved under `SESSIONS/SETTINGS/` (`<username>.lang`, `<username>.system`). First-time users are prompted for language (ES/EN) and notation system (letter/solfege); `/settings` can change them later.
+- Timed sessions stored as CSV files under `SESSIONS/SAVED_GAMES/<username>/session_YYYYMMDD_HHMMSS.csv`.
+- Analytics helpers: `/old_games [n]`, `/tiempos [n]`, `/aciertos [n]`.
+- Local mode mirrors Telegram commands (slash optional) and displays matplotlib figures inline while keeping the console in focus.
+- Automatic migration from legacy lowercase `sessions/` directories into the uppercase `SESSIONS/` layout.
 
 ## Requirements
 
-Python packages (install with pip):
+- Python 3.10+
+- `python-telegram-bot>=20.0`
+- `matplotlib`
+- Optional (Linux): `xdotool`, `wmctrl` for focus restoration
 
-- python-telegram-bot>=20.0
-- matplotlib
-
-Optional (Linux) system packages:
-
-- xdotool (recommended for returning focus to terminal on X11)
-- wmctrl (fallback option)
-
-See `requirements.txt` for the pip-list.
-
-## Installation
-
-1. Create a virtual environment (recommended):
+Install dependencies:
 
 ```powershell
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
-```
-
-2. Install Python dependencies:
-
-```powershell
 pip install -r requirements.txt
 ```
 
-3. (Linux) optionally install focus helpers:
-
-```bash
-sudo apt update
-sudo apt install -y xdotool wmctrl
-```
+*(On macOS/Linux replace the activation command accordingly.)*
 
 ## Configuration
 
-- By default the script will look for a file named `telegram_token.txt` in the current working directory when run with `--telegram`. If the file does not exist a template file will be created containing a commented instruction line; paste your bot token as a single non-comment line into that file and re-run with `--telegram`.
+1. **Telegram token** — store your bot token in `telegram_token.txt`. The file is ignored by git. If it is missing, the script creates a template the first time you start with `--telegram`.
+2. **Per-user settings** — every user (Telegram username or `local_<os_user>`) gets:
+   - `SESSIONS/SETTINGS/<user>.lang` → `es` or `en`.
+   - `SESSIONS/SETTINGS/<user>.system` → `letter` or `solfege`.
+   These files are created automatically after the user answers the onboarding questions or uses `/set_language` / `/set_system`.
 
-- If you still have an embedded `TELEGRAM_TOKEN` constant in `solfeo_bot.py`, the script will use it as a fallback but it's recommended to move the token to `telegram_token.txt` for safety.
+## Usage
 
-## Usage — Local (default)
-
-Run locally (default):
+### Local mode (default)
 
 ```powershell
 python .\solfeo_bot.py
 ```
 
-Commands (type in the prompt; in local mode you may omit the leading `/`):
+- Start by typing `play`, `historial`, or `settings`.
+- `play` explains `free` and `time` modes.
+- `historial` highlights `old_games`, `tiempos`, `aciertos`.
+- `settings` lists `set_language` and `set_system` prompts.
+- `free` and `time` immediately show notes; `stop` saves timed results.
+- `q`, `quit`, or `exit` leaves the program.
 
-- `free` or `/free` — switch to free mode (no timing, no saving).
-- `time` or `/time` — start a timed session; answers will be timed and recorded.
-- `stop` or `/stop` — stop the timed session and save results to `sessions/local_<os_user>/` as CSV.
-- `historial [n]` or `/historial [n]` — show last `n` sessions for the local user.
-- `tiempos [n]` or `/tiempos [n]` — display time plots (last `n` sessions).
-- `aciertos [n]` or `/aciertos [n]` — display success-rate plots (last `n` sessions).
-- (No `play` command required) — use `free` or `time` to begin showing notes immediately after selecting a mode.
-- `help` or `/help` — show instructions.
-- `q`, `quit`, `exit` — exit the program.
-
-### How local interaction works
-
-- The program starts in an idle prompt. Type `free` (or `time`) to choose a mode — notes are shown immediately.
-- When a note is active, the program shows a note image in a matplotlib window (non-blocking) and prompts for the note name in the console.
-- Answer using solfège (`do`, `re`, `mi`, etc.) or letter names (`C`, `D`, `E`, ...).
-- If you enter an unrecognized answer twice in a row, the session is stopped and help/instructions are shown.
-- In timed mode, answers taking more than 60 seconds will automatically stop the timed session and previous records (if any) are saved; the slow attempt itself will NOT be recorded.
-
-## Usage — Telegram
-
-Run the Telegram bot (requires `--telegram`):
+### Telegram bot
 
 ```powershell
 python .\solfeo_bot.py --telegram
 ```
 
-Interact with the bot via Telegram chat. The same commands are available (`/start`, `/free`, `/time`, `/stop`, `/historial`, `/tiempos`, `/aciertos`, `/help`).
+All commands accept the slash prefix; `/help` or `/start` re-display the three-option landing menu.
 
-## Session files and format
+| Command | Description |
+| --- | --- |
+| `/play` | Recaps `free` vs `time` modes. |
+| `/historial` | Points to `/old_games`, `/tiempos`, `/aciertos`. |
+| `/settings` | Introduces `/set_language` and `/set_system`. |
+| `/free`, `/time` | Begin practice immediately (free mode does not save; timed mode records attempts). |
+| `/stop` | Ends the current timed session and writes CSV data. |
+| `/old_games [n]` | Lists the latest `n` saved CSV files (default 5). |
+| `/tiempos [n]` | Generates time-per-note plots across the last `n` sessions. |
+| `/aciertos [n]` | Generates accuracy plots for the last `n` sessions. |
 
-Timed sessions are saved as CSV files under `sessions/<username>/session_YYYYMMDD_HHMMSS.csv`.
-Columns:
-- timestamp — ISO timestamp for the recorded attempt
-- clef — `treble` or `bass`
-- letter — note letter (C, D, E, ...)
-- solfege — Do/Re/Mi...
-- correct — 0 or 1
-- time_seconds — response time in seconds
+### Session data
 
-## Plots
+Timed sessions are written as CSV files containing:
 
-- `/tiempos` creates a two-panel figure (treble over bass) with average times and error bars (stddev). Both panels share the same y-axis range for easy comparison.
-- `/aciertos` creates a two-panel figure with success rates (%) and error bars.
+`timestamp`, `clef`, `letter`, `solfege`, `correct`, `time_seconds`.
 
-## Notes and troubleshooting
+Plots are rendered as temporary PNG files displayed through matplotlib.
 
-- On Windows, the script tries to bring the PowerShell console back into focus after showing figure windows. If you still need to click into the terminal, your OS focus settings may prevent automatic focus.
-- On Linux, installing `xdotool` or `wmctrl` improves focus behavior but these tools work on X11 (not Wayland). On Wayland you may need compositor-specific tools.
-- If plots block or multiple windows appear, try closing extra windows. If you prefer a single persistent GUI, I can switch to an in-window GUI (Tkinter) or reuse a single matplotlib figure and update it in-place.
+## Project layout
+
+```
+solfeo_bot.py          # main application
+README.md
+requirements.txt
+SESSIONS/
+  SETTINGS/            # per-user language/system files
+  SAVED_GAMES/<user>/  # timed session CSVs
+telegram_token.txt     # git-ignored bot token
+to_do.md               # development backlog
+```
+
+`SESSIONS/`, `JUNK/`, and other generated artifacts are ignored automatically via `.gitignore`.
+
+## Development notes
+
+- Quick syntax check: `python -m py_compile solfeo_bot.py`.
+- The roadmap lives in `to_do.md` (localization, consolidated JSON configs, inline keyboards, automated tests, diagnostics improvements, etc.).
+- Contributions are welcome — open an issue or PR if you want to extend the bot.
 
 ## License
 
-This project is licensed under the MIT License — see the included `LICENSE` file for details.
-
----
-
-Small utility for private practice. Feel free to adapt or open issues if you want features or changes.
+MIT — see `LICENSE`.
 
 
